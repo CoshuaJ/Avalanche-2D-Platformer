@@ -3,7 +3,7 @@ from constants import *
 import random
 
 
-class Block():
+class Block:
     def __init__(self, pos, dimensions, colour):
         self.img = pygame.Surface(dimensions)
         self.img.fill(colour)
@@ -19,7 +19,7 @@ class RandBlock(Block):
         self.colour = pygame.Color(palette[BLOCK])
         for i in range(0,3):
             n = random.randint(-15, 15)
-            if (self.colour[i] + n) >= 0 and (self.colour[i] + n) <= 255:
+            if 0 <= (self.colour[i] + n) <= 255:
                 self.colour[i] += n
         # rainbow blocks, self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         self.size = random.randint(1,2) * 60

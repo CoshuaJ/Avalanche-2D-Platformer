@@ -1,5 +1,5 @@
-# Avalanche
-Avalanche is a 2D vertical scrolling platformer.
+# Eruption
+Eruption is a 2D vertical scrolling platformer.
 Inspired by the original 'Avalanche' game developed by The Game Homepage, found at: https://www.addictinggames.com/action/avalanche
 
 ## Installation

@@ -2,15 +2,18 @@ import pygame
 from constants import *
 from player import Player
 from blocks import Block, RandBlock
+import math
 
-class Level():
-    def __init__(self, game_screen, palette):
+
+class Level:
+    def __init__(self, game_screen, palette, is_hard=True):
         # attributes
-        self.FONT = pygame.font.Font('retro.ttf', 30)
+        self.FONT = pygame.font.Font(FONT_STR, 30)
         self.surface = game_screen
         self.palette = palette
         self.running = True
         self.countdown = COUNTDOWN
+        self.is_hard = is_hard
         # create floor & lava
         self.floor = Block((0, HEIGHT-50), (WIDTH, HEIGHT/2), palette[GROUND])
         self.lava = Block((0, HEIGHT*1.4), (WIDTH, HEIGHT/2), palette[LAVA])
@@ -20,8 +23,13 @@ class Level():
         self.blocks = [self.lava, self.floor]
         self.top_block_y = self.floor.hitbox.y
         self.max_score = 0
+        # death animation
+        self.animation_frames = -1
+        self.animation_blocks = list()
+        self.prev_pos = None
         # camera
         self.cam_offset = pygame.math.Vector2(0, 0)
+
 
     def x_collision(self):
         player = self.player
@@ -72,8 +80,15 @@ class Level():
 
     def drop_blocks(self):
         for block in self.blocks:
+            # ensure not lava
+            if not isinstance(block, RandBlock):
+                continue
+            # remove blocks below the lava
+            if block.hitbox.top > self.lava.hitbox.top:
+                self.blocks.remove(block)
+                continue
             # block currently falling
-            if isinstance(block, RandBlock) and block.gravity:
+            if block.gravity:
                 block.hitbox.y += block.gravity
                 # check for player collision
                 if block.hitbox.colliderect(self.player.hitbox):
@@ -96,15 +111,23 @@ class Level():
                         if block.gravity == 0 and block.hitbox.y < self.top_block_y:
                             self.top_block_y = block.hitbox.y
 
+
     def align_camera(self):
         self.cam_offset.y = -(self.player.hitbox.y - 450)
 
     def try_spawn(self):
-        # spawning batches
-        if not self.countdown % 60:
-            self.spawn_block()
-        if not self.countdown % 250:
-            self.spawn_block()
+        # HARD spawning batches
+        if self.is_hard:
+            if not self.countdown % 60:
+                self.spawn_block()
+            if not self.countdown % 250:
+                self.spawn_block()
+        # EASY spawning
+        else:
+            if not self.countdown % 100:
+                self.spawn_block()
+            if not self.countdown % 369:
+                self.spawn_block()
         # countdown tick
         if self.countdown <= 0:
             self.countdown = COUNTDOWN
@@ -112,23 +135,30 @@ class Level():
             self.countdown -= 1
 
     def spawn_block(self):
-        self.blocks.append(RandBlock(self.top_block_y - HEIGHT, self.palette))
+        #self.blocks.append(RandBlock(self.top_block_y - HEIGHT * 1.1, self.palette))
+        new_block = RandBlock(self.player.hitbox.top - HEIGHT*1.1, self.palette)
+        # slower blocks on easy
+        if not self.is_hard:
+            new_block.gravity -= 1
+        self.blocks.append(new_block)
+        return new_block
 
     def lava_rise(self):
         if abs(self.player.hitbox.y - self.lava.hitbox.y) > HEIGHT:
             self.lava.hitbox.y = self.player.hitbox.y + HEIGHT
         if not self.countdown % 2:
             self.lava.hitbox.y -= 1
-        if not self.countdown % 3:
+        # slower lava on easy
+        if not self.countdown % 3 and self.is_hard:
             self.lava.hitbox.y -= 1
 
     def game_over(self):
         print(f'Game Over. Height: {self.max_score}')
-        self.running = False
+        self.animation_frames = 60
 
     def update(self):
         # game not running
-        if not self.running:
+        if not self.running or self.animation_frames > 0:
             return
         # level
         self.try_spawn()
@@ -138,50 +168,53 @@ class Level():
         self.player.update_dir()
         self.y_collision()
         self.x_collision()
-        self.align_camera()
+        # only update prev_pos and camera if player hasn't died
+        if self.animation_frames == -1:
+            self.prev_pos = self.player.hitbox.center
+            self.align_camera()
 
     def draw(self):
         self.surface.fill(self.palette[SKY])
         player_offset = self.player.hitbox.topleft + self.cam_offset
-        self.surface.blit(self.player.img, player_offset)
-        for block in self.blocks[::-1]:
+        block_list = self.blocks.copy()
+        block_list.reverse()
+        # check death_animation counter
+        if self.animation_frames > 0:
+            self.death_animation()
+            block_list.extend(self.animation_blocks)
+        else:
+            self.surface.blit(self.player.img, player_offset)
+        for block in block_list:
             block_offset = block.hitbox.topleft + self.cam_offset
             self.surface.blit(block.img, block_offset)
+            # outline_rect = pygame.Rect(block_offset, block.img.get_size())
+            # pygame.draw.rect(self.surface, (0, 0, 0), outline_rect, 2)
         score_txt = self.FONT.render(str(self.max_score), False, self.palette[GROUND])
         self.surface.blit(score_txt, (5, 0))
 
+    def death_animation(self):
+        self.animation_frames -= 1
+        if self.animation_frames == 0:
+            self.running = False
+            return
+        self.animation_blocks = list()
+        directions = [
+            (1, 0),  # Right
+            (math.cos(math.pi / 4), math.sin(math.pi / 4)),  # Top Right
+            (0, 1),  # Up
+            (-math.cos(math.pi / 4), math.sin(math.pi / 4)),  # Top Left
+            (-1, 0),  # Left
+            (-math.cos(math.pi / 4), -math.sin(math.pi / 4)),  # Bottom Left
+            (0, -1),  # Down
+            (math.cos(math.pi / 4), -math.sin(math.pi / 4))  # Bottom Right
+        ]
+        for i in range(8):
+            block = Block(self.prev_pos, (20, 20), self.palette[PLAYER])
+            dist = (60 - self.animation_frames)
+            block.hitbox.move_ip(directions[i][0] * dist, directions[i][1] * dist)
+            # self.surface.blit(block.img, block.hitbox)
+            self.animation_blocks.append(block)
 
-'''
-EASY MODE
-'''
 
 
-class EasyLevel(Level):
-    def __init__(self, game_screen, palette):
-        super().__init__(game_screen, palette)
 
-    # slower lava
-    def lava_rise(self):
-        if abs(self.player.hitbox.y - self.lava.hitbox.y) > HEIGHT:
-            self.lava.hitbox.y = self.player.hitbox.y + HEIGHT
-        if not self.countdown % 2:
-            self.lava.hitbox.y -= 1
-
-    # slower blocks
-    def spawn_block(self):
-        new_block = RandBlock(self.top_block_y - HEIGHT, self.palette)
-        new_block.gravity -= 1
-        self.blocks.append(new_block)
-
-    # fewer blocks
-    def try_spawn(self):
-        # spawning batches
-        if not self.countdown % 100:
-            self.spawn_block()
-        if not self.countdown % 369:
-            self.spawn_block()
-        # countdown tick
-        if self.countdown <= 0:
-            self.countdown = COUNTDOWN
-        else:
-            self.countdown -= 1

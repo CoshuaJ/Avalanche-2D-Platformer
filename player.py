@@ -1,7 +1,8 @@
 import pygame
 from constants import *
 
-class Player():
+
+class Player:
     def __init__(self, pos, palette):
         self.palette = palette
         self.img = pygame.Surface((PLAYER_W, PLAYER_H))
