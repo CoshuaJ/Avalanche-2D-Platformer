@@ -1,5 +1,5 @@
 import random
-from enum import Enum
+import enum
 
 WIDTH = 600
 HEIGHT = 750
@@ -17,6 +17,12 @@ BLOCK = 1
 SKY = 2
 GROUND = 3
 LAVA = 4
+
+class Leveltype(enum.Enum):
+    PRAC = 0
+    SOLO = 1
+    DUO = 2
+    AI = 3
 
 # colour palettes
 PALETTES = [

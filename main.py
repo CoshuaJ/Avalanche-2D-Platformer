@@ -3,11 +3,12 @@ from constants import *
 from level import *
 from player import *
 from menu import *
+import copy
 
 '''
 Eruption by Josh Costa
 Inspired by 'Avalanche' developed by The Game Homepage, found at: https://www.addictinggames.com/action/avalanche
-Hard Mode WR: 953 by Me, 08/03/23
+Solo WR: 1443 by me, 21/06/23
 '''
 
 # Initialize Pygame
@@ -28,7 +29,21 @@ last_score = 0
 FONT = pygame.font.Font(FONT_STR, 30)
 palette = rand_palette()
 menu = Menu(screen, palette)
-level = None
+level_type = Leveltype.SOLO
+curr_level = None
+
+def set_level(type):
+    if type == Leveltype.PRAC:
+        return Level(screen, palette, is_hard=False)
+    elif type == Leveltype.SOLO:
+        return Level(screen, palette)
+    elif type == Leveltype.DUO:
+        return Level2P(screen, palette)
+    elif type == Leveltype.AI:
+        return None
+    else:
+        return None
+
 
 # main game loop
 window_running = True
@@ -49,44 +64,46 @@ while window_running:
     mouse_btns = pygame.mouse.get_pressed()
     # start menu
     if game_state == MENU:
-        level = menu.update(keys, mouse_pos, mouse_btns)
-        if level is None:
+        new_level_type = menu.update(keys, mouse_pos, mouse_btns)
+        if new_level_type is None:
             menu.draw()
         else:
+            level_type = new_level_type
+            curr_level = set_level(level_type)
             game_state = ACTIVE
         # text
         pb_text = FONT.render("PB: " + str(PB_score), False, palette[GROUND])
         last_text = FONT.render("LAST: " + str(last_score), False, palette[GROUND])
         screen.blit(pb_text, (WIDTH-180, 0))
         screen.blit(last_text, (5, 0))
-
         # if R pressed
         if keys[pygame.K_r]:
-            level = Level(screen, palette)
+            curr_level = set_level(level_type)
             game_state = ACTIVE
 
     # level logic
     elif game_state == ACTIVE:
         # level status not running
-        if not level.running:
+        if not curr_level.running:
             # PB check
-            if level.max_score > PB_score:
-                PB_score = level.max_score
+            if curr_level.max_score > PB_score:
+                PB_score = curr_level.max_score
                 # update PB.txt file
                 with open("PB.txt", 'w') as file:
                     file.write(str(PB_score))
-            last_score = int(level.max_score)
+            last_score = int(curr_level.max_score)
             game_state = MENU
             palette = rand_palette()
             menu = Menu(screen, palette)
-            level = None
+            curr_level = None
         # level running
         else:
             # reset key
             if keys[pygame.K_r]:
-                level = Level(screen, palette)
-            level.update()
-            level.draw()
+                curr_level = set_level(level_type)
+                game_state = ACTIVE
+            curr_level.update()
+            curr_level.draw()
 
     # error screen
     else:
