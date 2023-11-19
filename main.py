@@ -23,8 +23,11 @@ pygame.mouse.set_visible(False)
 # game data
 is_hard = True
 game_state = MENU
-with open("PB.txt", 'r') as file:
-    PB_score = int(file.read())
+try:
+    with open("PB.txt", 'r') as file:
+        PB_score = int(file.read())
+except FileNotFoundError:
+    PB_score = 0
 last_score = 0
 FONT = pygame.font.Font(FONT_STR, 30)
 palette = rand_palette()
