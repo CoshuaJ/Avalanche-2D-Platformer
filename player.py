@@ -59,7 +59,7 @@ class Player:
                     #print(f"R: {self.direction.x}")
 
         # pressing jump
-        #print(f'{self.grounded} / {self.was_grounded}')
+        print(f'{self.grounded} / {self.was_grounded}')
 
         if up:
             if (self.grounded or self.was_grounded or self.is_wallcling) and self.jump_released:
@@ -115,14 +115,14 @@ class Player:
             self.locked_x = 7
         # update states
         self.jump_released = False
-        self.grounded = False
-        self.is_wallcling = False
+        #self.grounded = False
+        #self.is_wallcling = False
 
 
     def update_dir(self):
-        self.was_grounded = self.grounded
         self.get_input()
         self.apply_gravity()
+        self.was_grounded = self.grounded
         if self.locked_x:
             self.locked_x -= 1
 

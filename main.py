@@ -50,12 +50,8 @@ window_running = True
 while window_running:
     # window logic
     for event in pygame.event.get():
-        # clicked red X
-        if event.type == pygame.QUIT:
-            window_running = False
-            continue
-        # pressed Esc
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        # clicked red X OR pressed Esc
+        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
             window_running = False
             continue
     # record current frame inputs
