@@ -1,6 +1,8 @@
+import random
+
 import pygame
 from constants import *
-from player import Player, Player2
+from player import Player, Player2, PlayerBot
 from blocks import Block, RandBlock
 import math
 
@@ -22,7 +24,7 @@ class Level:
         self.player = Player(((WIDTH - PLAYER_W) / 2, HEIGHT), palette[PLAYER])
         self.players = [self.player]
         self.blocks = [self.lava, self.floor]
-        self.top_block_y = self.floor.hitbox.y
+        self.top_block = self.floor
         self.max_score = 0
         # death animation
         self.animation_frames = -1
@@ -113,8 +115,8 @@ class Level:
                         # fix hitboxes
                         block.hitbox.bottom = block2.hitbox.top
                         # check for highest landed block
-                        if block.gravity == 0 and block.hitbox.y < self.top_block_y:
-                            self.top_block_y = block.hitbox.y
+                        if block.gravity == 0 and block.hitbox.y < self.top_block.hitbox.y:
+                            self.top_block = block
 
     def align_camera(self):
         # self.cam_offset.y = -(self.player.hitbox.y - 450)
@@ -124,7 +126,7 @@ class Level:
                 min_height = player.hitbox.y
         self.cam_offset.y = -(min_height - 450)
 
-    def try_spawn(self):
+    def try_spawn_blocks(self):
         # HARD spawning batches
         if self.is_hard:
             if not self.countdown % 60:
@@ -165,17 +167,20 @@ class Level:
         self.animation_frames = 60
         player.dead = True
 
+    def update_players(self):
+        for player in self.players:
+            player.update_dir()
+
     def update(self):
         # game not running
         if not self.running or self.animation_frames > 0:
             return
         # level
-        self.try_spawn()
+        self.try_spawn_blocks()
         self.drop_blocks()
         self.lava_rise()
         # player
-        for player in self.players:
-            player.update_dir()
+        self.update_players()
         self.y_collision()
         self.x_collision()
         # only update prev_pos and camera if player hasn't died
@@ -236,7 +241,8 @@ class Level:
             self.animation_blocks.append(block)
 
 
-''' 2-Player level, adds player2 to player list
+'''
+2-Player level, adds player2 to player list
 '''
 class Level2P(Level):
     def __init__(self, game_screen, palette, is_hard=True):
@@ -244,6 +250,98 @@ class Level2P(Level):
         self.player.hitbox.x -= WIDTH/4  # move player1 over
         self.player2 = Player2(((WIDTH - PLAYER_W) / 2 + WIDTH/4, HEIGHT), palette[LAVA])
         self.players.append(self.player2)
+
+
+'''
+AI agent level, no manual control
+'''
+class LevelAI(Level):
+    def __init__(self, game_screen, palette, is_hard=True):
+        # set to easy level difficulty
+        super().__init__(game_screen, palette, is_hard=False)
+        # replace player with AI agent
+        self.player = PlayerBot(((WIDTH - PLAYER_W) / 2, HEIGHT), palette[PLAYER])
+        self.players = [self.player]
+
+    # override manual controls
+    def update_players(self):
+        for player in self.players:
+            # decide what inputs to press
+            left = right = up = down = False
+            # if player.grounded or player.is_wallcling:
+            #     up = True
+            # left = True
+            left, right, up, down = self.agent_dodge(player)
+            # apply inputs to player
+            player.left = left
+            player.right = right
+            player.up = up
+            player.down = down
+            # update player direction vector
+            player.update_dir()
+
+    def agent_rand(self, player):
+        left = bool(random.getrandbits(1))
+        right = not left
+        up = bool(random.getrandbits(1))
+        return left, right, up, False
+
+    def agent_dodge(self, player):
+        domain = [0] * int(WIDTH/10)
+        for block in self.blocks:
+            # skip landed blocks
+            if not block.gravity:
+                continue
+            # check falling blocks, mark array
+            for i in range(int(block.hitbox.left/10), int(block.hitbox.right/10)):
+                domain[i] = abs(block.hitbox.bottom - player.hitbox.top)
+
+        print(*domain)
+        target = self.find_safest(domain) * 10
+        print(target)
+        error = 5
+        left = right = up = False
+        if player.hitbox.centerx < (target - error):
+            right = True
+        elif player.hitbox.centerx > (target + error):
+            left = True
+        if player.is_wallcling:
+            up = True
+        return left, right, up, False
+
+    def find_safest(self, arr):
+        max_gap = 0
+        curr_gap = 0
+        target_x = -1
+
+        for i in range(len(arr)):
+            if arr[i] == 0:
+                curr_gap += 1
+            else:
+                if curr_gap > max_gap:
+                    max_gap = curr_gap
+                    target_x = i - curr_gap//2
+                curr_gap = 0
+        # gap might reach until RHS of screen
+        if curr_gap > max_gap:
+            target_x = len(arr) - curr_gap // 2
+        return target_x
+
+    def agent_top(self, player):
+        error = 5
+        left = right = up = False
+        target = self.top_block
+        if player.hitbox.centerx < (target.hitbox.centerx - error):
+            right = True
+        elif player.hitbox.centerx > (target.hitbox.centerx + error):
+            left = True
+        if player.grounded or player.is_wallcling:
+            up = True
+        return left, right, up, False
+
+
+
+
 
 
 

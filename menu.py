@@ -51,7 +51,7 @@ class Menu:
                     return Leveltype.DUO
                 # AI
                 elif button == self.ai_btn:
-                    return None
+                    return Leveltype.AI
                 # PRAC
                 elif button == self.prac_btn:
                     return Leveltype.PRAC

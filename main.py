@@ -43,7 +43,7 @@ def set_level(type):
     elif type == Leveltype.DUO:
         return Level2P(screen, palette)
     elif type == Leveltype.AI:
-        return None
+        return LevelAI(screen, palette)
     else:
         return None
 

@@ -14,7 +14,7 @@ class Block:
 
 class RandBlock(Block):
     def __init__(self, spawn_height, palette):
-        self.n_spawns = 25
+        self.n_spawns = 20
         # randomise
         self.colour = pygame.Color(palette[BLOCK])
         for i in range(0,3):

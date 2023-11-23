@@ -24,6 +24,12 @@ class Player:
         self.locked_x = 0
         self.error_val = 0.1
 
+        # curr inputs
+        self.left = False
+        self.right = False
+        self.up = False
+        self.down = False
+
         # death animation
         self.colour = colour
         self.dead = False
@@ -31,8 +37,12 @@ class Player:
 
     ''' Checks user inputs, considering player's current state, alters the direction vector
         Also runs jump() '''
-    def get_input(self):
-        left, right, up, down = self.set_keybinds()
+    def apply_inputs(self):
+        left = self.left
+        right = self.right
+        up = self.up
+        down = self.down
+
         if not self.locked_x:
             # not pressing either OR pressing both, slowdown
             if (not left and not right) or (left and right):
@@ -48,7 +58,6 @@ class Player:
                 if abs(self.direction.x) <= self.error_val:
                     self.direction.x = 0
                     #print(f"zero'd: {self.direction.x}")
-
             # pressing a direction
             else:
                 if left and self.direction.x > -self.speed:
@@ -59,30 +68,22 @@ class Player:
                     #print(f"R: {self.direction.x}")
 
         # pressing jump
-        print(f'{self.grounded} / {self.was_grounded}')
+        #print(f'{self.grounded} / {self.was_grounded}')
 
         if up:
             if (self.grounded or self.was_grounded or self.is_wallcling) and self.jump_released:
                 self.jump()
-
         # not pressing jump
         else:
             self.jump_released = True
 
-    # set direction keys
-    def set_keybinds(self):
+    # record directional inputs
+    def get_inputs(self):
         keys = pygame.key.get_pressed()
-        left = right = up = down = False
-        if keys[pygame.K_a]:
-            left = True
-        if keys[pygame.K_d]:
-            right = True
-        if keys[pygame.K_w]:
-            up = True
-        if keys[pygame.K_s]:
-            down = True
-        return left, right, up, down
-
+        self.left = keys[pygame.K_a]
+        self.right = keys[pygame.K_d]
+        self.up = keys[pygame.K_w]
+        self.down = keys[pygame.K_s]
 
     def apply_gravity(self):
         if self.is_wallcling and self.direction.y > self.slide_cap:
@@ -90,14 +91,14 @@ class Player:
         else:
             self.direction.y += self.gravity
 
-
     def move_y(self):
         self.hitbox.y += self.direction.y
 
     def move_x(self):
         self.hitbox.x += self.direction.x
 
-    ''' Alters direction vector, checks for wallcling
+    '''
+    Alters direction vector, checks for wallcling
     '''
     def jump(self):
         self.direction.y = self.jump_speed
@@ -115,12 +116,10 @@ class Player:
             self.locked_x = 7
         # update states
         self.jump_released = False
-        #self.grounded = False
-        #self.is_wallcling = False
-
 
     def update_dir(self):
-        self.get_input()
+        self.get_inputs()
+        self.apply_inputs()
         self.apply_gravity()
         self.was_grounded = self.grounded
         if self.locked_x:
@@ -132,17 +131,19 @@ class Player2(Player):
         super().__init__(pos, colour)
 
     # override direction keys
-    def set_keybinds(self):
+    def get_inputs(self):
         keys = pygame.key.get_pressed()
-        left = right = up = down = False
-        if keys[pygame.K_LEFT]:
-            left = True
-        if keys[pygame.K_RIGHT]:
-            right = True
-        if keys[pygame.K_UP]:
-            up = True
-        if keys[pygame.K_DOWN]:
-            down = True
-        return left, right, up, down
+        self.left = keys[pygame.K_LEFT]
+        self.right = keys[pygame.K_RIGHT]
+        self.up = keys[pygame.K_UP]
+        self.down = keys[pygame.K_DOWN]
+
+
+class PlayerBot(Player):
+    def __init__(self, pos, colour):
+        super().__init__(pos, colour)
+
+    def get_inputs(self):
+        pass
 
 
