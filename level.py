@@ -24,7 +24,8 @@ class Level:
         self.player = Player(((WIDTH - PLAYER_W) / 2, HEIGHT), palette[PLAYER])
         self.players = [self.player]
         self.blocks = [self.lava, self.floor]
-        self.top_block = self.floor
+        self.top_block = self.floor  # highest block which has landed
+        self.landed_on_block = self.floor  # tracks which block player is/was last standing on
         self.max_score = 0
         # death animation
         self.animation_frames = -1
@@ -74,6 +75,7 @@ class Level:
                         player.hitbox.bottom = block.hitbox.top
                         # landed on block
                         player.grounded = True
+                        self.landed_on_block = block
                     # moving up
                     elif player.direction.y < 0:
                         player.hitbox.top = block.hitbox.bottom
@@ -100,7 +102,7 @@ class Level:
                 for player in self.players:
                     if block.hitbox.colliderect(player.hitbox):
                         # player squashed
-                        if player.grounded or player.was_grounded:
+                        if player.grounded:  # or player.was_grounded:
                             self.game_over(player)
                             return
                         else:
@@ -268,10 +270,7 @@ class LevelAI(Level):
         for player in self.players:
             # decide what inputs to press
             left = right = up = down = False
-            # if player.grounded or player.is_wallcling:
-            #     up = True
-            # left = True
-            left, right, up, down = self.agent_dodge(player)
+            left, right, up, down = self.agent_safety(player)
             # apply inputs to player
             player.left = left
             player.right = right
@@ -280,53 +279,14 @@ class LevelAI(Level):
             # update player direction vector
             player.update_dir()
 
+    # random inputs
     def agent_rand(self, player):
         left = bool(random.getrandbits(1))
         right = not left
         up = bool(random.getrandbits(1))
         return left, right, up, False
 
-    def agent_dodge(self, player):
-        domain = [0] * int(WIDTH/10)
-        for block in self.blocks:
-            # skip landed blocks
-            if not block.gravity:
-                continue
-            # check falling blocks, mark array
-            for i in range(int(block.hitbox.left/10), int(block.hitbox.right/10)):
-                domain[i] = abs(block.hitbox.bottom - player.hitbox.top)
-
-        print(*domain)
-        target = self.find_safest(domain) * 10
-        print(target)
-        error = 5
-        left = right = up = False
-        if player.hitbox.centerx < (target - error):
-            right = True
-        elif player.hitbox.centerx > (target + error):
-            left = True
-        if player.is_wallcling:
-            up = True
-        return left, right, up, False
-
-    def find_safest(self, arr):
-        max_gap = 0
-        curr_gap = 0
-        target_x = -1
-
-        for i in range(len(arr)):
-            if arr[i] == 0:
-                curr_gap += 1
-            else:
-                if curr_gap > max_gap:
-                    max_gap = curr_gap
-                    target_x = i - curr_gap//2
-                curr_gap = 0
-        # gap might reach until RHS of screen
-        if curr_gap > max_gap:
-            target_x = len(arr) - curr_gap // 2
-        return target_x
-
+    # move towards highest landed block
     def agent_top(self, player):
         error = 5
         left = right = up = False
@@ -338,6 +298,126 @@ class LevelAI(Level):
         if player.grounded or player.is_wallcling:
             up = True
         return left, right, up, False
+
+    # targets largest gap between falling blocks
+    def agent_dodge(self, player):
+        domain = [0] * int(WIDTH / 10)
+        for block in self.blocks:
+            # skip landed blocks
+            if not block.gravity:
+                continue
+            # check falling blocks, mark array
+            for i in range(int(block.hitbox.left / 10), int(block.hitbox.right / 10)):
+                domain[i] = abs(block.hitbox.bottom - player.hitbox.top)
+
+        print(*domain)
+        target = self.find_gap(domain) * 10
+        print(target)
+        error = 5
+        left = right = up = False
+        if player.hitbox.centerx < (target - error):
+            right = True
+        elif player.hitbox.centerx > (target + error):
+            left = True
+        if player.is_wallcling:
+            up = True
+        return left, right, up, False
+
+    def find_gap(self, arr):
+        max_gap = 0
+        curr_gap = 0
+        target_x = -1
+        for i in range(len(arr)):
+            if arr[i] == 0:
+                curr_gap += 1
+            else:
+                if curr_gap > max_gap:
+                    max_gap = curr_gap
+                    target_x = i - curr_gap // 2
+                curr_gap = 0
+        # gap might reach until RHS of screen
+        if curr_gap > max_gap:
+            target_x = len(arr) - curr_gap // 2
+        return target_x
+
+    # Evaluates region safety using falling blocks distance and lava distance
+    def agent_safety(self, player):
+        interval = 10
+        blocks_safety = [999] * int(WIDTH/interval)
+        lava_safety = [0] * int(WIDTH/interval)
+        lava_height = self.lava.hitbox.top
+        for block in self.blocks:
+            # landed blocks
+            if not block.gravity:
+                # if landed and above lava, mark ground as safe
+                if block.hitbox.top < lava_height:
+                    for i in range(int(block.hitbox.left/interval), int(block.hitbox.right/interval)):
+                        lava_safety[i] = max(lava_safety[i], abs(block.hitbox.top - lava_height))
+            # falling blocks
+            else:
+                # block above player
+                if block.hitbox.bottom < player.hitbox.top:
+                    for i in range(int(block.hitbox.left / interval), int(block.hitbox.right / interval)):
+                        blocks_safety[i] = min(blocks_safety[i], abs(block.hitbox.bottom - player.hitbox.top))
+                # block below player
+                else:
+                    pass
+
+        target_x = self.find_safest(blocks_safety, lava_safety) * interval
+        #print(*blocks_safety)
+        #print(*lava_safety)
+        print(target_x)
+        # movement output
+        error = 5
+        left = right = up = False
+        player_x = player.hitbox.centerx
+        if abs(player_x - target_x) < error:
+            pass
+        else:
+            # player left of target
+            if player_x < target_x:
+                right = (target_x - player_x) < (player_x + WIDTH - target_x)
+                left = not right
+            # player right of target
+            else:
+                left = (player_x - target_x) < (target_x + WIDTH - player_x)
+                right = not left
+        if player.grounded or player.is_wallcling:
+            up = True
+        return left, right, up, False
+
+    '''
+    Find safest position on current map, return pos
+    '''
+    def find_safest(self, blocks_safety, lava_safety):
+        # total safety value
+        block_weight = 1
+        lava_weight = 1
+        total_safety = [(x * block_weight) + (y * lava_weight) for x, y in zip(blocks_safety, lava_safety)]
+        # safezone variables
+        max_safety_val = max(total_safety)
+        curr_gap_len = 0
+        max_gap_len = 0
+        target_x = -1
+        #
+        for i in range(len(total_safety)):
+            # same zone
+            if total_safety[i] == max_safety_val:
+                curr_gap_len += 1
+            # new zone
+            else:
+                if curr_gap_len > max_gap_len:
+                    max_gap_len = curr_gap_len
+                    target_x = i - curr_gap_len//2
+                curr_gap_len = 0
+        # gap might reach until RHS of screen
+        if curr_gap_len > max_gap_len:
+            target_x = len(total_safety) - curr_gap_len//2
+        #DEBUGGING
+        for i in range(len(total_safety)):
+            total_safety[i] = int(total_safety[i] / 100)
+        print(*total_safety)
+        return target_x
 
 
 
