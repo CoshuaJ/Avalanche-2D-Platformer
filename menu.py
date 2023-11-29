@@ -23,7 +23,7 @@ class Menu:
         self.background.fill(self.palette[SKY])
         self.cursor.fill(self.palette[PLAYER])
         # text
-        self.title_txt = (pygame.font.Font(FONT_STR, 50)).render("ERUPTION", False, palette[GROUND])
+        self.title_txt = (pygame.font.Font(FONT_STR, 50)).render("AVALANCHE", False, palette[GROUND])
         # text hitboxes
         self.title_txt_hitbox = self.title_txt.get_rect(centerx=WIDTH // 2, top=HEIGHT*0.1)
 

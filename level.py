@@ -5,7 +5,7 @@ from constants import *
 from player import Player, Player2, PlayerBot
 from blocks import Block, RandBlock
 import math
-
+from itertools import groupby
 
 class Level:
     def __init__(self, game_screen, palette, is_hard=True):
@@ -342,7 +342,8 @@ class LevelAI(Level):
 
     # Evaluates region safety using falling blocks distance and lava distance
     def agent_safety(self, player):
-        interval = 10
+        interval = 5
+        #
         blocks_safety = [999] * int(WIDTH/interval)
         lava_safety = [0] * int(WIDTH/interval)
         lava_height = self.lava.hitbox.top
@@ -356,21 +357,23 @@ class LevelAI(Level):
             # falling blocks
             else:
                 # block above player
-                if block.hitbox.bottom < player.hitbox.top:
+                if block.hitbox.bottom < player.hitbox.centery:
                     for i in range(int(block.hitbox.left / interval), int(block.hitbox.right / interval)):
                         blocks_safety[i] = min(blocks_safety[i], abs(block.hitbox.bottom - player.hitbox.top))
                 # block below player
                 else:
                     pass
 
-        target_x = self.find_safest(blocks_safety, lava_safety) * interval
         #print(*blocks_safety)
         #print(*lava_safety)
-        print(target_x)
+
+        target_x = self.find_safest(blocks_safety, lava_safety, interval)
+        #print(target_x)
         # movement output
         error = 5
         left = right = up = False
         player_x = player.hitbox.centerx
+        # player close enough to target
         if abs(player_x - target_x) < error:
             pass
         else:
@@ -382,6 +385,7 @@ class LevelAI(Level):
             else:
                 left = (player_x - target_x) < (target_x + WIDTH - player_x)
                 right = not left
+        # always walljump
         if player.grounded or player.is_wallcling:
             up = True
         return left, right, up, False
@@ -389,16 +393,50 @@ class LevelAI(Level):
     '''
     Find safest position on current map, return pos
     '''
-    def find_safest(self, blocks_safety, lava_safety):
+    def find_safest(self, blocks_safety, lava_safety, interval):
+        target_x = -1
         # total safety value
         block_weight = 1
         lava_weight = 1
-        total_safety = [(x * block_weight) + (y * lava_weight) for x, y in zip(blocks_safety, lava_safety)]
+        #total_safety = [(x * block_weight) + (y * lava_weight) for x, y in zip(blocks_safety, lava_safety)]
+        total_safety = [min(x * block_weight, y * lava_weight) for x, y in zip(blocks_safety, lava_safety)]
+
+        # calc group areas
+        groups = []
+        start_index = 0
+        # (safety value, group length, starting index)
+        for key, group in groupby(total_safety):
+            length = len(list(group))
+            groups.append((key, length, start_index))
+            start_index += length
+
+        # check first and last tuple, combine if same value (use modulo on index)
+
+        # sort groups by value and length
+        def custom_sort(tuple_item):
+            return (-tuple_item[0], -tuple_item[1])
+        sorted_groups = sorted(groups, key=custom_sort)
+
+        # find safest group, must have length >= player width / interval
+        best_safety = 0
+        best_len = 0
+        min_len = math.ceil(PLAYER_W / interval)
+        for (safety, length, start) in sorted_groups:
+            # already found safest group
+            if safety < best_safety:
+                break
+            #
+            if safety > best_safety:
+                if length >= max(min_len, best_len):
+                    target_x = start + (length // 2)
+                    best_safety = safety
+            #print(f"curr target: {target_x}")
+
+        '''
         # safezone variables
         max_safety_val = max(total_safety)
         curr_gap_len = 0
         max_gap_len = 0
-        target_x = -1
         #
         for i in range(len(total_safety)):
             # same zone
@@ -413,11 +451,14 @@ class LevelAI(Level):
         # gap might reach until RHS of screen
         if curr_gap_len > max_gap_len:
             target_x = len(total_safety) - curr_gap_len//2
+        '''
+
         #DEBUGGING
-        for i in range(len(total_safety)):
-            total_safety[i] = int(total_safety[i] / 100)
-        print(*total_safety)
-        return target_x
+        # for i in range(len(total_safety)):
+        #     total_safety[i] = int(total_safety[i] / 100)
+        # print(*total_safety)
+        # print(f"target_x: {target_x, total_safety[target_x]}")
+        return target_x * interval
 
 
 

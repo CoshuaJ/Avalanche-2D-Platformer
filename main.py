@@ -6,7 +6,7 @@ from menu import *
 import copy
 
 '''
-Eruption by Josh Costa
+Avalanche by Josh Costa
 Inspired by 'Avalanche' developed by The Game Homepage, found at: https://www.addictinggames.com/action/avalanche
 Solo WR: 1443 by me, 21/06/23
 '''
@@ -16,7 +16,7 @@ pygame.init()
 
 # display settings
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Eruption")
+pygame.display.set_caption("Avalanche")
 clock = pygame.time.Clock()
 pygame.mouse.set_visible(False)
 
