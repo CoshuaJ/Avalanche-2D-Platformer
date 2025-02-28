@@ -342,7 +342,7 @@ class LevelAI(Level):
 
     # Evaluates region safety using falling blocks distance and lava distance
     def agent_safety(self, player):
-        interval = 5
+        interval = 3
         #
         blocks_safety = [999] * int(WIDTH/interval)
         lava_safety = [0] * int(WIDTH/interval)
@@ -370,12 +370,15 @@ class LevelAI(Level):
         target_x = self.find_safest(blocks_safety, lava_safety, interval)
         #print(target_x)
         # movement output
-        error = 5
+        error = 3
         left = right = up = False
         player_x = player.hitbox.centerx
+        # always walljump
+        if player.grounded or player.is_wallcling:
+            up = True
         # player close enough to target
         if abs(player_x - target_x) < error:
-            pass
+            up = False
         else:
             # player left of target
             if player_x < target_x:
@@ -385,9 +388,7 @@ class LevelAI(Level):
             else:
                 left = (player_x - target_x) < (target_x + WIDTH - player_x)
                 right = not left
-        # always walljump
-        if player.grounded or player.is_wallcling:
-            up = True
+        
         return left, right, up, False
 
     '''
